@@ -152,8 +152,11 @@ impl PreTokenizer for ByteLevel {
 /// This decoder will consume the tokens and merge them in one step to alleviate
 /// the fact that single token decoded might be a byte not representable as
 /// as String.
+/// !!! 改动：如果解码后的字节序列无法转换为有效的 UTF-8 字符串，并且输入仅包含一个 token，则使用 `backslashreplace` 方式进行还原。!!!
 impl Decoder for ByteLevel {
     fn decode_chain(&self, tokens: Vec<String>) -> Result<Vec<String>> {
+        // 1. 还原字节流（保持原有的逻辑）
+        let is_single = tokens.len() == 1;
         let toks = tokens
             .into_iter()
             .flat_map(|t| {
@@ -167,7 +170,27 @@ impl Decoder for ByteLevel {
                     .unwrap_or_else(|| t.as_bytes().to_vec())
             })
             .collect::<Vec<u8>>();
-        Ok(vec![String::from_utf8_lossy(&toks).to_string()])
+        // 如果有多个 token，保持原有逻辑
+        if !is_single {
+            return Ok(vec![String::from_utf8_lossy(&toks).to_string()])
+        }
+        // 如果只有一个 token，尝试还原为 UTF-8 字符串
+        if let Ok(s) = std::str::from_utf8(&toks) {
+            return Ok(vec![s.to_string()]);
+        }
+        // 转换失败，使用 backslashreplace 方式还原
+        // 实现：仅保留合法单字节(ASCII)，其余全部转义
+        let mut res = String::with_capacity(toks.len() * 2);
+        for &b in &toks {
+            // 0x00 到 0x7F 是 ASCII 范围（包含标准符号、字母、数字）
+            if b <= 127 {
+                res.push(b as char);
+            } else {
+                // 所有多字节字符（如中文）的字节都在 128 以上，统一转义
+                res.push_str(&format!("\\x{:02x}", b));
+            }
+        }
+        Ok(vec![res])
     }
 }
 
