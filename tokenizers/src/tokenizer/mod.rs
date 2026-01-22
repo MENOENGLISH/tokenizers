@@ -1096,9 +1096,23 @@ where
     PP: PostProcessor,
     D: Decoder,
 {
+    // 辅助闭包：判断字符串是否以“不完整字符”结尾
+    // 包含原始的  和你自定义的 \x.. 格式
+    let is_incomplete = |s: &str| -> bool {
+        if s.ends_with('�') {
+            return true;
+        }
+        if s.len() >= 4 {
+            let tail = &s[s.len() - 4..];
+            // 匹配 \x 加两个十六进制字符
+            return tail.starts_with("\\x") && tail[2..].chars().all(|c| c.is_ascii_hexdigit());
+        }
+        false
+    };
+
     if prefix.is_empty() && !ids.is_empty() {
         let new_prefix = tokenizer.decode(ids, skip_special_tokens)?;
-        if !new_prefix.ends_with('�') {
+        if !is_incomplete(&new_prefix) {
             *prefix = new_prefix;
             *prefix_index = ids.len();
         }
@@ -1106,7 +1120,9 @@ where
 
     ids.extend(token_ids);
     let string = tokenizer.decode(ids.as_slice(), skip_special_tokens)?;
-    if string.len() > prefix.len() && !string.ends_with('�') {
+
+    // 使用新的判断逻辑
+    if string.len() > prefix.len() && !is_incomplete(&string) {
         if !(string.starts_with(&*prefix)) {
             return Err(Box::new(DecodeStreamError::InvalidPrefix {
                 token_id: *ids.last().unwrap(),
