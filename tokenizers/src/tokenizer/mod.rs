@@ -1102,12 +1102,14 @@ where
         if s.ends_with('�') {
             return true;
         }
-        if s.len() >= 4 {
-            let tail = &s[s.len() - 4..];
-            // 匹配 \x 加两个十六进制字符
-            return tail.starts_with("\\x") && tail[2..].chars().all(|c| c.is_ascii_hexdigit());
+        s.as_bytes().len() >= 4 && {
+            let bytes = s.as_bytes();
+            let len = bytes.len();
+            bytes[len-4] == b'\\' && 
+            bytes[len-3] == b'x' && 
+            bytes[len-2].is_ascii_hexdigit() && 
+            bytes[len-1].is_ascii_hexdigit()
         }
-        false
     };
 
     if prefix.is_empty() && !ids.is_empty() {
