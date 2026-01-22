@@ -4,6 +4,8 @@ Ensure you have the **Rust toolchain** installed. If not, get it at [rustup.rs](
 For example for Linux,
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# Configure your current shell
+source $HOME/.cargo/env
 ```
 
 Then, install `maturin`:
